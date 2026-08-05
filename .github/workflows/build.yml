@@ -143,14 +143,15 @@ jobs:
       id-token: write
       attestations: write
       contents: read
-    name: Push Docker image to Docker Hub (${{ matrix.variant }})
+      packages: write
+    name: Push Docker image to GitHub Container Registry (${{ matrix.variant }})
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
       matrix:
         variant: [nftables, iptables]
     env:
-      REGISTRY: docker.io
+      REGISTRY: ghcr.io
     
     steps:
       - name: Checkout repository
@@ -158,7 +159,7 @@ jobs:
       
       - name: Set image name
         run: |
-          echo "IMAGE_NAME=${{ secrets.DOCKER_HUB_USERNAME }}/crowdsec-firewall-bouncer-docker" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ github.repository }}" >> $GITHUB_ENV
       
       - name: Load versions from .env
         run: |
@@ -182,17 +183,18 @@ jobs:
             exit 1
           fi
       
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=tag,suffix=-debian-${{ env.DEBIAN_VERSION }}${{ env.BOUNCER_VERSION_SUFFIX }}-${{ matrix.variant }}
             type=semver,pattern={{version}},suffix=-debian-${{ env.DEBIAN_VERSION }}${{ env.BOUNCER_VERSION_SUFFIX }}-${{ matrix.variant }}
@@ -283,12 +285,12 @@ jobs:
           
           **nftables variant** (recommended for Kubernetes):
           \`\`\`bash
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/crowdsec-firewall-bouncer-docker:${VERSION}-debian-${DEBIAN_VERSION}-bouncer-${CROWDSEC_BOUNCER_VERSION}-nftables
+          docker pull ghcr.io/${{ github.repository }}:${VERSION}-debian-${DEBIAN_VERSION}-bouncer-${CROWDSEC_BOUNCER_VERSION}-nftables
           \`\`\`
           
           **iptables variant**:
           \`\`\`bash
-          docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/crowdsec-firewall-bouncer-docker:${VERSION}-debian-${DEBIAN_VERSION}-bouncer-${CROWDSEC_BOUNCER_VERSION}-iptables
+          docker pull ghcr.io/${{ github.repository }}:${VERSION}-debian-${DEBIAN_VERSION}-bouncer-${CROWDSEC_BOUNCER_VERSION}-iptables
           \`\`\`
           
           ### 🔧 Versions

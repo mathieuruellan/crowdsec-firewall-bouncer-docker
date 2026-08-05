@@ -4,8 +4,8 @@ Docker images for CrowdSec Firewall Bouncer with nftables and iptables support, 
 
 ## Available Variants
 
-- **nftables**: `davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables`
-- **iptables**: `davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-iptables`
+- **nftables**: `ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables`
+- **iptables**: `ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-iptables`
 
 ## Overview
 
@@ -111,7 +111,7 @@ spec:
       
       # CrowdSec Firewall Bouncer sidecar (nftables variant)
       - name: crowdsec-firewall-bouncer
-        image: davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.34-nftables
+        image: ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.34-nftables
         security_context:
           privileged: true
           allow_privilege_escalation: true
@@ -211,7 +211,7 @@ resource "kubernetes_deployment" "app" {
         # CrowdSec Firewall Bouncer sidecar
         container {
           name  = "crowdsec-firewall-bouncer"
-          image = "davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables"
+          image = "ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables"
 
           security_context {
             privileged                = true
