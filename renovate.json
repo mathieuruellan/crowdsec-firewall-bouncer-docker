@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["\\.env$"],
+      "matchStrings": ["CROWDSEC_BOUNCER_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "crowdsecurity/cs-firewall-bouncer",
+      "datasourceTemplate": "github-tags",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchDatasources": ["github-tags"],
+      "matchPackageNames": ["crowdsecurity/cs-firewall-bouncer"],
+      "ignorePrerelease": true,
+      "versioning": "semver"
+    }
+  ]
+}
