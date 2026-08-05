@@ -20,7 +20,7 @@ jobs:
         variant: [nftables, iptables]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Load versions from .env
         run: |
@@ -45,7 +45,7 @@ jobs:
           fi
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build image
         run: |
@@ -62,7 +62,7 @@ jobs:
           docker save crowdsec-firewall-bouncer:test-${{ matrix.variant }} -o /tmp/docker-images/crowdsec-firewall-bouncer-${{ matrix.variant }}.tar
 
       - name: Upload Docker image artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: docker-image-${{ matrix.variant }}
           path: /tmp/docker-images/*.tar
@@ -77,13 +77,13 @@ jobs:
         variant: [nftables, iptables]
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Download Docker image artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: docker-image-${{ matrix.variant }}
           path: /tmp/docker-images
@@ -155,7 +155,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       
       - name: Set image name
         run: |
@@ -184,7 +184,7 @@ jobs:
           fi
       
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -192,7 +192,7 @@ jobs:
       
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -203,7 +203,7 @@ jobs:
       
       - name: Build and push Docker image
         id: push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile.${{ matrix.variant }}
@@ -215,7 +215,7 @@ jobs:
             CROWDSEC_BOUNCER_VERSION=${{ env.CROWDSEC_BOUNCER_VERSION }}
       
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -231,7 +231,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       
@@ -311,7 +311,7 @@ jobs:
       - name: Generate changelog
         if: steps.check_branch.outputs.skip_release != 'true'
         id: changelog
-        uses: mikepenz/release-changelog-builder-action@v4
+        uses: mikepenz/release-changelog-builder-action@v5
         with:
           configuration: ".github/changelog-config.json"
           failOnError: false
@@ -320,7 +320,7 @@ jobs:
       
       - name: Create GitHub Release
         if: steps.check_branch.outputs.skip_release != 'true'
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           name: "CrowdSec Firewall Bouncer ${{ steps.release_notes.outputs.version }} (Debian ${{ steps.release_notes.outputs.debian_version }}, Bouncer ${{ steps.release_notes.outputs.bouncer_version }})"
           body: |
