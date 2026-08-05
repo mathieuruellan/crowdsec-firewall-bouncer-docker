@@ -4,8 +4,8 @@ Docker images for CrowdSec Firewall Bouncer with nftables and iptables support, 
 
 ## Available Variants
 
-- **nftables**: `davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.34-nftables`
-- **iptables**: `davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.34-iptables`
+- **nftables**: `davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables`
+- **iptables**: `davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-iptables`
 
 ## Overview
 
@@ -211,7 +211,7 @@ resource "kubernetes_deployment" "app" {
         # CrowdSec Firewall Bouncer sidecar
         container {
           name  = "crowdsec-firewall-bouncer"
-          image = "davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.34-nftables"
+          image = "davidbcn86/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables"
 
           security_context {
             privileged                = true
@@ -346,7 +346,7 @@ Versions are managed in `.env`:
 
 ```bash
 DEBIAN_VERSION=12
-CROWDSEC_BOUNCER_VERSION=0.0.34
+CROWDSEC_BOUNCER_VERSION=0.0.36
 ```
 
 Build:
