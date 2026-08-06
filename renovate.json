@@ -4,8 +4,8 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["\\.env$"],
-      "matchStrings": ["CROWDSEC_BOUNCER_VERSION=(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "fileMatch": ["^Dockerfile$"],
+      "matchStrings": ["https://github.com/crowdsecurity/cs-firewall-bouncer/releases/download/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/"],
       "depNameTemplate": "crowdsecurity/cs-firewall-bouncer",
       "datasourceTemplate": "github-tags",
       "extractVersionTemplate": "^v(?<version>.*)$"

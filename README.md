@@ -1,364 +1,54 @@
-# CrowdSec Firewall Bouncer Docker Image
+# CrowdSec Firewall Bouncer Docker
 
-Docker images for CrowdSec Firewall Bouncer with nftables and iptables support, optimized for Kubernetes deployments.
-
-## Available Variants
-
-- **nftables**: `ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables`
-- **iptables**: `ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-iptables`
-
-## Overview
-
-This image provides the CrowdSec Firewall Bouncer as a **Kubernetes sidecar container** to secure TCP and HTTP services. The bouncer runs alongside your application container and automatically blocks malicious IPs detected by CrowdSec, protecting your services from attacks.
-
-**Principal Use Case**: Deploy as a sidecar container in Kubernetes pods to protect your TCP and HTTP services by automatically applying firewall rules based on CrowdSec threat intelligence.
-
-**When to Use This Sidecar**: While the recommended approach is to bounce at the ingress level, some ingress controllers (like Traefik) lack support for TCP bouncers. For TCP services or when ingress-level bouncing isn't available, deploy this sidecar directly in your workload pods to apply firewall rules at the pod level.
-
-## Features
-
-- Pre-installed CrowdSec firewall bouncer with nftables support
-- Template-based configuration using `envsubst`
-- Kubernetes-ready sidecar container
-- Minimal Debian-based image
+A minimal Docker image for the [CrowdSec Firewall Bouncer](https://docs.crowdsec.net/docs/bouncers/firewall-bouncer/) with nftables support, based on Debian bookworm-slim.
 
 ## Usage
 
-### Creating a Bouncer Key
-
-Before deploying the bouncer, you need to create an API key in CrowdSec. There are two methods:
-
-#### Method 1: Using cscli (Recommended for manual setup)
-
-```bash
-# Connect to your CrowdSec container or server
-cscli bouncers add firewall-bouncer --key <your-api-key>
-```
-
-Or let CrowdSec generate a key:
-
-```bash
-cscli bouncers add firewall-bouncer
-# Output will show the generated API key
-```
-
-#### Method 2: Using Environment Variable (Recommended for automated deployments)
-
-Set an environment variable on the CrowdSec container/service:
+Create a config file:
 
 ```yaml
-# Docker Compose example
-services:
-  crowdsec:
-    environment:
-      - BOUNCER_KEY_FIREWALL_BOUNCER=your-api-key-here
+# crowdsec-firewall-bouncer.yaml
+api_url: http://192.168.1.6:8580
+api_key: your-bouncer-api-key
+mode: nftables
+update_frequency: 10s
+daemonize: false
+
+log_level: info
+log_media: stdout
+
+nftables:
+  enabled: true
+  ipv4_table: crowdsec
+  ipv6_table: crowdsec6
+  ipv4_chain: crowdsec-chain
+  ipv6_chain: crowdsec-chain
 ```
 
-```yaml
-# Kubernetes example
-env:
-- name: BOUNCER_KEY_FIREWALL_BOUNCER
-  value: "your-api-key-here"
-```
+Generate a bouncer key with `cscli bouncers add <name>` on your CrowdSec LAPI.
 
-The format is `BOUNCER_KEY_<NAME>` where `<NAME>` is your bouncer identifier. CrowdSec will automatically create the bouncer with this key on startup.
-
-### Kubernetes Sidecar
-
-Add the CrowdSec Firewall Bouncer as a sidecar container:
-
-```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: crowdsec-bouncer-config-nftables
-data:
-  crowdsec-firewall-bouncer.yaml.template: |
-    api_url: ${CROWDSEC_API_URL}
-    api_key: ${CROWDSEC_API_KEY}
-    mode: nftables
-    update_frequency: 10s
-    daemonize: false
-    log_level: info
-    log_media: stdout
-    log_dir: /var/log
-    pid_dir: /var/run
-    nftables:
-      enabled: true
-      ipv4_table: crowdsec
-      ipv6_table: crowdsec6
-      ipv4_chain: crowdsec-chain
-      ipv6_chain: crowdsec-chain
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: crowdsec-api-key
-type: Opaque
-stringData:
-  api_key: "your-api-key-here"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-app
-spec:
-  template:
-    spec:
-      containers:
-      - name: app
-        image: your-app:v1.0.0
-      
-      # CrowdSec Firewall Bouncer sidecar (nftables variant)
-      - name: crowdsec-firewall-bouncer
-        image: ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.34-nftables
-        security_context:
-          privileged: true
-          allow_privilege_escalation: true
-          capabilities:
-            add: ["NET_ADMIN", "NET_RAW", "SYS_ADMIN"]
-        env:
-        - name: CROWDSEC_API_URL
-          value: "http://crowdsec-service:8080"
-        - name: CROWDSEC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: crowdsec-api-key
-              key: api_key
-        volumeMounts:
-        - name: crowdsec-bouncer-config
-          mountPath: /tmp/crowdsec-config-source
-        - name: crowdsec-bouncer-var-log
-          mountPath: /var/log
-        - name: crowdsec-bouncer-var-run
-          mountPath: /var/run
-        resources:
-          requests:
-            cpu: "50m"
-            memory: "64Mi"
-          limits:
-            cpu: "200m"
-            memory: "256Mi"
-      volumes:
-      - name: crowdsec-bouncer-config
-        configMap:
-          name: crowdsec-bouncer-config-nftables
-      - name: crowdsec-bouncer-var-log
-        emptyDir: {}
-      - name: crowdsec-bouncer-var-run
-        emptyDir: {}
-```
-
-### Terraform Example
-
-```hcl
-resource "kubernetes_config_map" "crowdsec_bouncer_config_nftables" {
-  metadata {
-    name = "crowdsec-bouncer-config-nftables"
-  }
-
-  data = {
-    "crowdsec-firewall-bouncer.yaml.template" = <<-EOT
-      api_url: ${var.crowdsec_api_url}
-      api_key: ${var.crowdsec_api_key}
-      mode: nftables
-      update_frequency: 10s
-      daemonize: false
-      log_level: info
-      log_media: stdout
-      log_dir: /var/log
-      pid_dir: /var/run
-      nftables:
-        enabled: true
-        ipv4_table: crowdsec
-        ipv6_table: crowdsec6
-        ipv4_chain: crowdsec-chain
-        ipv6_chain: crowdsec-chain
-    EOT
-  }
-}
-
-resource "kubernetes_deployment" "app" {
-  metadata {
-    name = "my-app"
-  }
-
-  spec {
-    replicas = 1
-
-    selector {
-      match_labels = {
-        app = "my-app"
-      }
-    }
-
-    template {
-      metadata {
-        labels = {
-          app = "my-app"
-        }
-      }
-
-      spec {
-        # Main application container
-        container {
-          name  = "app"
-          image = "atmoz/sftp:latest"
-
-          # ... your app configuration ...
-        }
-
-        # CrowdSec Firewall Bouncer sidecar
-        container {
-          name  = "crowdsec-firewall-bouncer"
-          image = "ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.0.0-debian-12-bouncer-0.0.36-nftables"
-          security_context {
-            privileged                = true
-            allow_privilege_escalation = true
-            capabilities {
-              add = ["NET_ADMIN", "NET_RAW", "SYS_ADMIN"]
-            }
-          }
-
-          env {
-            name  = "CROWDSEC_API_URL"
-            value = var.crowdsec_api_url
-          }
-
-          env {
-            name = "CROWDSEC_API_KEY"
-            value_from {
-              secret_key_ref {
-                name = kubernetes_secret.crowdsec_api_key.metadata[0].name
-                key  = "api_key"
-              }
-            }
-          }
-
-          volume_mount {
-            name       = "crowdsec-bouncer-config"
-            mount_path = "/tmp/crowdsec-config-source"
-          }
-
-          volume_mount {
-            name       = "crowdsec-bouncer-var-log"
-            mount_path = "/var/log"
-          }
-
-          volume_mount {
-            name       = "crowdsec-bouncer-var-run"
-            mount_path = "/var/run"
-          }
-
-          resources {
-            requests = {
-              cpu    = "50m"
-              memory = "64Mi"
-            }
-            limits = {
-              cpu    = "200m"
-              memory = "256Mi"
-            }
-          }
-        }
-
-        volume {
-          name = "crowdsec-bouncer-config"
-          config_map {
-            name = kubernetes_config_map.crowdsec_bouncer_config_nftables.metadata[0].name
-          }
-        }
-
-        volume {
-          name = "crowdsec-bouncer-var-log"
-          empty_dir {}
-        }
-
-        volume {
-          name = "crowdsec-bouncer-var-run"
-          empty_dir {}
-        }
-      }
-    }
-  }
-}
-```
-
-## Configuration
-
-The bouncer uses a configuration template processed with `envsubst` at runtime.
-
-### Configuration Paths
-
-- **Template**: `/tmp/crowdsec-config-source/crowdsec-firewall-bouncer.yaml.template`
-- **Output**: `/etc/crowdsec/bouncers/crowdsec-firewall-bouncer.yaml`
-
-### Environment Variables
-
-All environment variables starting with `CROWDSEC_` are automatically substituted:
-
-- `CROWDSEC_API_URL`: CrowdSec API URL (default: `http://127.0.0.1:8080`)
-- `CROWDSEC_API_KEY`: API key (required)
-
-### Template Syntax
-
-```yaml
-api_url: ${CROWDSEC_API_URL}
-api_key: ${CROWDSEC_API_KEY}
-```
-
-### Logging
-
-The firewall bouncer logs its operations (connecting to CrowdSec API, applying firewall rules, processing decisions) to stdout by default (configurable via `log_media` and `log_dir`).
-
-**Operational Logs**: The bouncer logs when it:
-- Connects to the CrowdSec API
-- Receives and processes decisions from CrowdSec
-- Adds or removes IPs from firewall rules
-- General operational status
-
-**Blocked Connection Logs**: To log individual blocked connections, enable the `deny_log` option in your configuration:
-
-```yaml
-deny_log: true
-deny_log_prefix: "crowdsec: "
-```
-
-When enabled, blocked packets are logged to the kernel log (viewable via `dmesg` or `/var/log/kern.log`). In Kubernetes, these logs appear in the container's kernel logs or can be collected via a log aggregation system.
-
-## Local Testing
+Run with the host network so nftables rules apply to the host:
 
 ```bash
-# Build and start services
-docker compose up -d
-
-# Run integration tests
-./Test-Integration.ps1
-
-# Clean up
-docker compose down -v
+docker run -d --name crowdsec-firewall-bouncer \
+  --network host \
+  --cap-add NET_ADMIN \
+  --cap-add NET_RAW \
+  -v /path/to/crowdsec-firewall-bouncer.yaml:/etc/crowdsec/crowdsec-firewall-bouncer.yaml:ro \
+  ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:latest
 ```
 
-## Building
+The image ships with a default config at `/etc/crowdsec/crowdsec-firewall-bouncer.yaml` that you can override by mounting your own file.
 
-Versions are managed in `.env`:
-
-```bash
-DEBIAN_VERSION=12
-CROWDSEC_BOUNCER_VERSION=0.0.36
-```
-
-Build:
+## Build
 
 ```bash
-docker compose build
+docker build -t crowdsec-firewall-bouncer .
 ```
 
 ## Requirements
 
-- Kubernetes cluster with privileged container support
-- CrowdSec API instance
-- Network access between bouncer and API
+- Host with nftables and privileged container support (`NET_ADMIN`, `NET_RAW`)
 
 ## References
 
