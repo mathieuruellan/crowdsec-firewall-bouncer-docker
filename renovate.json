@@ -5,7 +5,9 @@
   "customManagers": [
     {
       "customType": "regex",
-      "fileMatch": ["^Dockerfile$"],
+      "managerFilePatterns": [
+        "/^Dockerfile$/"
+      ],
       "matchStrings": ["https://github.com/crowdsecurity/cs-firewall-bouncer/releases/download/v(?<currentValue>\\d+\\.\\d+\\.\\d+)/"],
       "depNameTemplate": "crowdsecurity/cs-firewall-bouncer",
       "datasourceTemplate": "github-tags",
