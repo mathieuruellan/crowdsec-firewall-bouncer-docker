@@ -16,7 +16,7 @@
     {
       "matchDatasources": ["github-tags"],
       "matchPackageNames": ["crowdsecurity/cs-firewall-bouncer"],
-      "ignorePrerelease": true,
+      "ignoreUnstable": true,
       "versioning": "semver"
     }
   ]
