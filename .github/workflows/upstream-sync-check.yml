@@ -28,7 +28,13 @@ jobs:
       - name: Fetch forkorigin master
         run: |
           set -euo pipefail
-          git fetch --no-tags https://github.com/david-garcia-garcia/crowdsec-firewall-bouncer-docker.git master:refs/remotes/forkorigin/master
+          REFS=(master:refs/remotes/forkorigin/master)
+          if [ "${{ inputs.simulate_upstream_move }}" = "true" ]; then
+            # Simulation compares against a non-ancestor branch to exercise the
+            # alert path; fetch it only when actually simulating.
+            REFS+=(initial-fixes:refs/remotes/forkorigin/initial-fixes)
+          fi
+          git fetch --no-tags https://github.com/david-garcia-garcia/crowdsec-firewall-bouncer-docker.git "${REFS[@]}"
           echo "forkorigin/master = $(git rev-parse forkorigin/master)"
 
       - name: Compare with upstream
