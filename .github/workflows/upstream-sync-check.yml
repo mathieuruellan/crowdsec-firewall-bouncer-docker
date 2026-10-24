@@ -1,0 +1,102 @@
+name: Upstream Sync Check
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      simulate_upstream_move:
+        description: 'Simulate an upstream move (compares against forkorigin/initial-fixes) to test the alert path'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Public repo, plain HTTPS, no token required. A failure here means the
+      # check could not run (network/registry issue) -- it does NOT mean
+      # upstream has moved, which is reported separately below.
+      - name: Fetch forkorigin master
+        run: |
+          set -euo pipefail
+          git fetch --no-tags https://github.com/david-garcia-garcia/crowdsec-firewall-bouncer-docker.git master:refs/remotes/forkorigin/master
+          echo "forkorigin/master = $(git rev-parse forkorigin/master)"
+
+      - name: Compare with upstream
+        id: compare
+        run: |
+          set -euo pipefail
+          REF=forkorigin/master
+          if [ "${{ inputs.simulate_upstream_move }}" = "true" ]; then
+            REF=forkorigin/initial-fixes
+            echo "::notice::SIMULATION MODE -- comparing against $REF instead of forkorigin/master"
+          fi
+          BEHIND=$(git rev-list --count "HEAD..$REF")
+          AHEAD=$(git rev-list --count "$REF..HEAD")
+          {
+            echo "ref=$REF"
+            echo "behind=$BEHIND"
+            echo "ahead=$AHEAD"
+          } >> "$GITHUB_OUTPUT"
+          echo "$REF = $(git rev-parse "$REF")"
+          echo "behind=$BEHIND ahead=$AHEAD"
+
+      - name: Up to date with upstream
+        if: steps.compare.outputs.behind == '0'
+        run: |
+          set -euo pipefail
+          echo "Already up to date with ${{ steps.compare.outputs.ref }}."
+          echo "We are ${{ steps.compare.outputs.ahead }} commits ahead (fork-specific work)."
+
+      - name: Alert (open or update tracking issue)
+        if: steps.compare.outputs.behind != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          REF="${{ steps.compare.outputs.ref }}"
+          TITLE="Upstream forkorigin has new commits"
+          COMMITS=$(git log --oneline "HEAD..$REF")
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BODY=$(cat <<EOF
+          ${{ steps.compare.outputs.behind }} commit(s) on \`$REF\` are **not yet in \`master\`**.
+
+          \`\`\`
+          $COMMITS
+          \`\`\$
+
+          Nothing was merged or rebased automatically. To review and integrate:
+
+          \`\`\`bash
+          git fetch forkorigin
+          git log --oneline master..forkorigin/master
+          git merge forkorigin/master   # or rebase, after reviewing
+          \`\`\$
+
+          Detected by [run ${{ github.run_number }}]($RUN_URL).
+          EOF
+          )
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing issue #$EXISTING"
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+          else
+            echo "Creating tracking issue"
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
+
+      - name: Fail when upstream moved
+        if: steps.compare.outputs.behind != '0'
+        run: |
+          echo "::error::forkorigin moved: ${{ steps.compare.outputs.behind }} commit(s) behind ${{ steps.compare.outputs.ref }}. See the tracking issue."
+          exit 1
