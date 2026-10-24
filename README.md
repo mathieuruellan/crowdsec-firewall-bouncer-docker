@@ -50,6 +50,21 @@ docker build -t crowdsec-firewall-bouncer .
 
 - Host with nftables and privileged container support (`NET_ADMIN`, `NET_RAW`)
 
+## Tracking upstream
+
+This repo is a fork of [david-garcia-garcia/crowdsec-firewall-bouncer-docker](https://github.com/david-garcia-garcia/crowdsec-firewall-bouncer-docker)
+and has diverged intentionally (single nftables image, simplified CI). The
+`upstream-sync-check` workflow runs daily and fails (plus opens/updates a
+tracking issue) if `forkorigin/master` gains commits we don't have. It never
+merges or rebases anything on its own.
+
+Manual check:
+
+```bash
+git fetch forkorigin
+git rev-list --left-right --count master...forkorigin/master   # <ahead> <behind>
+```
+
 ## References
 
 - [CrowdSec Documentation](https://docs.crowdsec.net/)
