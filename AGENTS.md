@@ -32,8 +32,17 @@ with nftables support, published to GHCR.
 - **`build.yml`** — builds and pushes to GHCR on push to `master`, tag `v*`, `create` (tags only),
   `workflow_dispatch`.
   - Tags emitted: `vX.Y.Z-bouncer-<ver>` and `X.Y.Z-bouncer-<ver>` (tag events),
-    `latest-bouncer-<ver>` (default branch only). There is **no** bare `latest` and no short
-    semver tags — the `*-debian-12-*` tags in the registry are historical leftovers.
+    `bouncer-<ver>` (tag events only — the **host pin**, see below), `latest-bouncer-<ver>`
+    (default branch only). There is **no** bare `latest` and no short semver tags — the
+    `*-debian-12-*` tags in the registry are historical leftovers.
+  - Why `bouncer-<ver>` exists: Renovate's `docker` versioning splits a tag on `-` and treats the
+    rest as an immutable *suffix* (a "flavor", like `-alpine`), so `v1.2.0-bouncer-0.0.38` is
+    **incompatible** with `v1.0.0-bouncer-0.0.36` (`isCompatible()` requires equal suffixes) and is
+    never offered as an update. `bouncer-<ver>` carries one version axis only, so the bastion repo
+    can track it. Don't "improve" it into `bouncer-<ver>-<repoVersion>`: that reintroduces a suffix.
+  - `bouncer-<ver>` is published on tag events **only** and must stay immutable. If a Dockerfile-only
+    change ever needs releasing without a bouncer bump, do not re-push `bouncer-<ver>` — cut a
+    `vX.Y.Z-bouncer-<ver>` release and re-pin the host by hand.
   - A tag push fires **two** runs (`push:tags` + `create`); they build identical source — wait for
     both before recording a release digest.
 - **`upstream-sync-check.yml`** — daily (06:17 UTC) + dispatch. Fetches `forkorigin` over public
@@ -66,10 +75,14 @@ with nftables support, published to GHCR.
 
 Only one host consumes it: **biniou.bastion**.
 
-- Compose lives in a **different repo**: Forgejo `bastion.git` (local mirror
-  `~/projects/komodo/bastion`, path `zz-crowdsec/docker-compose.yml`), image currently pinned to
-  `ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:v1.1.0-bouncer-0.0.36`.
-- Update flow: commit + push there → **as root** on the host
+- Compose lives in a **different repo**: Forgejo `bastion.git` (local clone
+  `~/perso/bastion`, path `zz-crowdsec/docker-compose.yml`), pinned to
+  `ghcr.io/mathieuruellan/crowdsec-firewall-bouncer-docker:bouncer-<ver>`.
+- Renovate **does** manage that pin: the bastion repo's `renovate.json` has a regex `customManager`
+  that reads `bouncer-<ver>` from the compose file, tracks `crowdsecurity/cs-firewall-bouncer` via
+  `github-releases`, and rewrites the tag. Its built-in `docker-compose` manager is disabled for this
+  image (that datasource cannot cross the `-bouncer-` suffix, see `build.yml` above).
+- Update flow: Renovate opens the PR there → merge → **as root** on the host
   (`git -C /etc/docker-compose pull --ff-only && docker compose -f /etc/docker-compose/zz-crowdsec/docker-compose.yml up -d firewall-bouncer`).
   `mathieu` has no SSH key on that host, and `zz-crowdsec/` + `.forgejo/workflows/` are root-owned,
   so non-root pulls/merges fail.

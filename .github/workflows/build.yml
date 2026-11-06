@@ -44,6 +44,7 @@ jobs:
           tags: |
             type=semver,pattern={{version}},suffix=-bouncer-${{ env.BOUNCER_VERSION }}
             type=ref,event=tag,suffix=-bouncer-${{ env.BOUNCER_VERSION }}
+            type=raw,value=bouncer-${{ env.BOUNCER_VERSION }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=latest,suffix=-bouncer-${{ env.BOUNCER_VERSION }},enable={{is_default_branch}}
 
       - name: Build and push Docker image
