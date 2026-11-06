@@ -7,10 +7,12 @@ Guidance for agents (and humans) working in this repository.
 A minimal Docker image for the [CrowdSec Firewall Bouncer](https://docs.crowdsec.net/docs/bouncers/firewall-bouncer/)
 with nftables support, published to GHCR.
 
-- **Single `Dockerfile`** (Debian bookworm-slim). The bouncer version is encoded **only** in the
-  download URL (`crowdsecurity/cs-firewall-bouncer` release) — CI extracts it with
-  `grep -oP 'releases/download/v\K[0-9.]+' Dockerfile`. Bouncer `v0.0.36` is the latest upstream
-  release; bumping it means editing that URL.
+- **Single `Dockerfile`** (Debian bookworm-slim). The bouncer version appears **three times** — the
+  download URL, `mv /tmp/crowdsec-firewall-bouncer-v<ver>/…` and
+  `rm -rf …/crowdsec-firewall-bouncer-v<ver>` — and all three must move together: the regex manager
+  in `renovate.json` rewrites each of them. `build.yml` extracts the version from the download URL
+  with `grep -oP 'releases/download/v\K[0-9.]+' Dockerfile`. A bump that only touches the URL builds
+  a broken image (the `mv` fails on the new tarball directory).
 - `config/crowdsec-firewall-bouncer.yaml` is the default config baked into the image
   (placeholder key); deployments always mount their own file over it.
 - This fork **intentionally diverged** from upstream: single nftables image, no iptables variant,
@@ -39,7 +41,19 @@ with nftables support, published to GHCR.
   not in `master`. Informational only: **never** merge, rebase, build, or tag from it. The
   `simulate_upstream_move` input exercises the alert path (compares against
   `forkorigin/initial-fixes`, which is fetched only while simulating).
-- **`renovate.yml`** — weekly (Mon 05:00); `renovate.json` restricts autodiscover to this repo.
+- **`renovate.yml`** — weekly (Mon 05:00) + dispatch; `renovate.json` restricts autodiscover to this
+  repo. The `log_level` dispatch input (`info`/`debug`/`trace`) is forwarded to the container's
+  `LOG_LEVEL` — use `gh workflow run renovate.yml -f log_level=debug` when an expected update never
+  appears.
+  - `renovate.json` sets `ignoreUnstable: true`, and the `github-tags` datasource takes `isStable`
+    from the matching **GitHub release**. While upstream keeps a release flagged *pre-release*,
+    Renovate silently ignores it: no branch, no PR, no dashboard arrow and **no warning** (this is
+    why `v0.0.38` was skipped for five weeks, until its release was un-flagged on 2026-11-03).
+    Check `gh api repos/<owner>/<repo>/releases/tags/<tag> --jq .prerelease` before assuming a
+    config problem.
+  - Do **not** pass `configurationFile:` to the action: it mounts the repo `renovate.json` as
+    `RENOVATE_CONFIG_FILE` *and* Renovate reads the same file from the repo, so `customManagers` is
+    merged twice (duplicate deps, `Cannot find replaceString … Was it already updated?`).
 
 ## Hard rules (live deployments depend on these)
 
