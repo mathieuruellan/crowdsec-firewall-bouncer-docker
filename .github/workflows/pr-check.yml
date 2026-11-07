@@ -1,0 +1,32 @@
+name: PR Check
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Extract bouncer version from Dockerfile
+        run: |
+          BOUNCER_VERSION=$(grep -oP 'releases/download/v\K[0-9.]+' Dockerfile | head -1)
+          if [ -z "${BOUNCER_VERSION}" ]; then
+            echo "Could not extract bouncer version from Dockerfile"
+            exit 1
+          fi
+          echo "BOUNCER_VERSION=${BOUNCER_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          build-args: |
+            BOUNCER_VERSION=${{ env.BOUNCER_VERSION }}
